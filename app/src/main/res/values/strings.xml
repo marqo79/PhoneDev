@@ -30,6 +30,10 @@
     <string name="dialer">Dialer</string>
     <string name="accept">Accept</string>
     <string name="accept_call">Accept call</string>
+    <string name="missed_call_notification">Missed call</string>
+    <string name="missed_calls_notification">Missed calls (%1$d)</string>
+    <string name="missed_calls_channel">Missed calls</string>
+    <string name="missed_call_callback">Call back</string>
     <string name="decline">Decline</string>
     <string name="decline_call">Decline call</string>
     <string name="unknown_caller">Unknown Caller</string>

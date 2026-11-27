@@ -8,12 +8,10 @@ import android.app.NotificationManager.IMPORTANCE_HIGH
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.os.Build
 import android.os.SystemClock
 import android.telecom.Call
-import android.text.SpannableStringBuilder
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -83,7 +81,7 @@ class CallNotificationManager(private val context: Context) {
 
             val contentTextId = when (callState) {
                 Call.STATE_RINGING -> R.string.is_calling
-                Call.STATE_DIALING -> R.string.dialing
+                Call.STATE_CONNECTING, Call.STATE_DIALING -> R.string.dialing
                 Call.STATE_DISCONNECTED -> R.string.call_ended
                 Call.STATE_DISCONNECTING -> R.string.call_ending
                 else -> R.string.ongoing_call
@@ -96,21 +94,19 @@ class CallNotificationManager(private val context: Context) {
             val simName = sim?.displayName
             val simColor = sim?.color?.adjustForContrast(context.getProperBackgroundColor())
             val status = if (showNumber) callContact.number else context.getString(contentTextId)
-            val statusText = SpannableStringBuilder(status).apply {
-                if (simName != null && simColor != null) {
-                    append(" • ")
-                    append(simName, ForegroundColorSpan(simColor), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
-            }
+            val isActive = callState == Call.STATE_ACTIVE
 
             val notificationView = RemoteViews(context.packageName, R.layout.call_notification).apply {
                 setText(R.id.notification_caller_name, callerName)
-                setTextViewText(R.id.notification_call_status, statusText)
+                setTextViewText(R.id.notification_call_status, status)
                 setVisibleIf(R.id.notification_accept_call, callState == Call.STATE_RINGING)
+                setVisibleIf(R.id.notification_answer_gap, callState == Call.STATE_RINGING)
+                val hasSingleAction = !isActive && callState != Call.STATE_RINGING
+                setVisibleIf(R.id.notification_action_space_start, hasSingleAction)
+                setVisibleIf(R.id.notification_action_space_end, hasSingleAction)
 
                 setOnClickPendingIntent(R.id.notification_decline_call, declinePendingIntent)
                 setOnClickPendingIntent(R.id.notification_accept_call, acceptPendingIntent)
-                val isActive = callState == Call.STATE_ACTIVE
                 setVisibleIf(R.id.notification_speaker, isActive)
                 setVisibleIf(R.id.notification_microphone, isActive)
                 val endDescription = if (callState == Call.STATE_RINGING) R.string.decline_call else R.string.end_call
@@ -119,8 +115,6 @@ class CallNotificationManager(private val context: Context) {
                 if (isActive) {
                     val speakerOn = CallManager.getCallAudioRoute() == AudioRoute.SPEAKER
                     val muted = CallManager.isMicrophoneMuted()
-                    setImageViewResource(R.id.notification_decline_call, R.drawable.ic_phone_down_vector)
-                    setInt(R.id.notification_decline_call, "setBackgroundResource", R.drawable.call_end_background)
                     setAudioAction(
                         R.id.notification_speaker,
                         TOGGLE_CALL_SPEAKER,
@@ -141,35 +135,33 @@ class CallNotificationManager(private val context: Context) {
                     setViewVisibility(R.id.notification_thumbnail, View.VISIBLE)
                     setImageViewBitmap(R.id.notification_caller_photo, callContactAvatar)
                 }
+                if (simName != null && simColor != null) {
+                    setViewVisibility(R.id.notification_metadata, View.VISIBLE)
+                    setViewVisibility(R.id.notification_sim_name, View.VISIBLE)
+                    setText(R.id.notification_sim_name, simName)
+                    setViewPadding(R.id.notification_sim_name, dpToPx(4f), 0, dpToPx(4f), 0)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        setInt(R.id.notification_sim_name, "setBackgroundResource", R.drawable.notification_sim_label)
+                        setColorStateList(R.id.notification_sim_name, "setBackgroundTintList", ColorStateList.valueOf(simColor))
+                        setTextColor(R.id.notification_sim_name, simColor.getContrastColor())
+                    } else {
+                        setTextColor(R.id.notification_sim_name, simColor)
+                    }
+                }
+                if (isActive && connectedAt != null) {
+                    setViewVisibility(R.id.notification_metadata, View.VISIBLE)
+                    setViewVisibility(R.id.notification_timer, View.VISIBLE)
+                    val base = SystemClock.elapsedRealtime() - (System.currentTimeMillis() - connectedAt).coerceAtLeast(0)
+                    setChronometer(R.id.notification_timer, base, null, true)
+                }
             }
 
-            val collapsedView = if (callState == Call.STATE_ACTIVE && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val collapsedView = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 RemoteViews(notificationView).apply {
                     setViewVisibility(R.id.notification_thumbnail, View.GONE)
-                    val showSimLine = usesXiaomiNotificationPanel && simName != null
-                    setViewVisibility(R.id.notification_call_status, View.GONE)
-                    if (showSimLine) {
-                        setViewVisibility(R.id.notification_metadata, View.VISIBLE)
-                        setViewVisibility(R.id.notification_sim_name, View.VISIBLE)
-                        setText(R.id.notification_sim_name, simName)
-                        setViewPadding(R.id.notification_sim_name, dpToPx(4f), 0, dpToPx(4f), 0)
-                        if (simColor != null) {
-                            setInt(R.id.notification_sim_name, "setBackgroundResource", R.drawable.notification_sim_label)
-                            setColorStateList(
-                                R.id.notification_sim_name,
-                                "setBackgroundTintList",
-                                android.content.res.ColorStateList.valueOf(simColor)
-                            )
-                            setTextColor(R.id.notification_sim_name, simColor.getContrastColor())
-                        }
-                    }
+                    setVisibleIf(R.id.notification_call_status, usesXiaomiNotificationPanel && !isActive)
+                    setVisibleIf(R.id.notification_sim_name, simName != null && (usesXiaomiNotificationPanel || !isActive))
                     setTextViewTextSize(R.id.notification_caller_name, TypedValue.COMPLEX_UNIT_SP, if (usesXiaomiNotificationPanel) 16f else 13f)
-                    if (connectedAt != null) {
-                        setViewVisibility(R.id.notification_metadata, View.VISIBLE)
-                        setViewVisibility(R.id.notification_timer, View.VISIBLE)
-                        val base = SystemClock.elapsedRealtime() - (System.currentTimeMillis() - connectedAt).coerceAtLeast(0)
-                        setChronometer(R.id.notification_timer, base, null, true)
-                    }
                     val gap = if (usesXiaomiNotificationPanel) 6f else 0f
                     setViewLayoutMargin(R.id.notification_actions_holder, RemoteViews.MARGIN_TOP, gap, TypedValue.COMPLEX_UNIT_DIP)
                     if (usesXiaomiNotificationPanel) {
@@ -194,15 +186,16 @@ class CallNotificationManager(private val context: Context) {
                 .setChannelId(channelId)
                 .setStyle(Notification.DecoratedCustomViewStyle())
 
-            if (callState == Call.STATE_ACTIVE) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    notificationView.setActionSize(height = 48f, iconPadding = 8f)
-                }
-                builder.setCustomBigContentView(notificationView)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                notificationView.setActionSize(height = 48f, iconPadding = 8f)
+            }
+            builder.setCustomBigContentView(notificationView)
+            if (isActive) {
                 connectedAt?.let { builder.setWhen(it) }
             }
 
             if (isHighPriority) {
+                builder.setCustomHeadsUpContentView(if (usesXiaomiNotificationPanel) collapsedView else notificationView)
                 builder.setFullScreenIntent(openAppPendingIntent, true)
             }
 
@@ -217,7 +210,7 @@ class CallNotificationManager(private val context: Context) {
     @RequiresApi(Build.VERSION_CODES.S)
     private fun RemoteViews.setActionSize(height: Float, iconPadding: Float) {
         val padding = dpToPx(iconPadding)
-        for (viewId in intArrayOf(R.id.notification_speaker, R.id.notification_microphone, R.id.notification_decline_call)) {
+        for (viewId in intArrayOf(R.id.notification_speaker, R.id.notification_microphone, R.id.notification_decline_call, R.id.notification_accept_call)) {
             setViewLayoutHeight(viewId, height, TypedValue.COMPLEX_UNIT_DIP)
             setViewPadding(viewId, padding, padding, padding, padding)
         }

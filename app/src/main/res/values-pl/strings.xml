@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="missed_call_notification">Nieodebrane połączenie</string>
+    <string name="missed_calls_notification">Nieodebrane połączenia (%1$d)</string>
+    <string name="missed_calls_channel">Nieodebrane połączenia</string>
+    <string name="missed_call_callback">Oddzwoń</string>
     <string name="default_phone_app_prompt">Ustaw tę aplikację jako domyślną aplikację telefonu</string>
     <string name="allow_displaying_over_other_apps">Zezwól aplikacji na wyświetlanie nad innymi, aby zapewnić niezawodne działanie</string>
     <string name="could_not_access_contacts">Nie udało się uzyskać dostępu do Twoich kontaktów</string>
