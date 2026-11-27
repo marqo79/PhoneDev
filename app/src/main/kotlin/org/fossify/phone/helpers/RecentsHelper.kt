@@ -270,6 +270,7 @@ class RecentsHelper(private val context: Context) {
                         type = type,
                         simID = simAccount?.id ?: -1,
                         simColor = simAccount?.color ?: -1,
+                        simName = simAccount?.displayName,
                         specificNumber = specificNumber,
                         specificType = specificType,
                         isUnknownNumber = isUnknownNumber

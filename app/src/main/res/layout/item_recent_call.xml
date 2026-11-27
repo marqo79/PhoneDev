@@ -44,34 +44,19 @@
         app:layout_constraintVertical_chainStyle="spread_inside"
         tools:text="John Doe" />
 
-    <ImageView
-        android:id="@+id/item_recents_sim_image"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginStart="@dimen/tiny_margin"
-        android:alpha="0.6"
-        android:padding="@dimen/tiny_margin"
-        android:src="@drawable/ic_sim_vector"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/item_recents_date_time"
-        app:layout_constraintDimensionRatio="1:1"
-        app:layout_constraintStart_toEndOf="@+id/item_recents_image"
-        app:layout_constraintTop_toTopOf="@id/item_recents_date_time"
-        tools:visibility="visible" />
-
     <TextView
-        android:id="@+id/item_recents_sim_id"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:gravity="center"
-        android:textColor="@color/md_grey_black"
+        android:id="@+id/item_recents_sim_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/small_margin"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:maxWidth="72dp"
         android:textSize="@dimen/small_text_size"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/item_recents_sim_image"
-        app:layout_constraintEnd_toEndOf="@+id/item_recents_sim_image"
-        app:layout_constraintStart_toStartOf="@+id/item_recents_sim_image"
-        app:layout_constraintTop_toTopOf="@+id/item_recents_sim_image"
-        tools:text="1"
+        app:layout_constraintBaseline_toBaselineOf="@id/item_recents_date_time"
+        app:layout_constraintStart_toEndOf="@id/item_recents_image"
+        tools:text="SIM name"
         tools:visibility="visible" />
 
     <ImageView
@@ -83,7 +68,7 @@
         android:src="@drawable/ic_call_missed_vector"
         app:layout_constraintBottom_toBottomOf="@+id/item_recents_date_time"
         app:layout_constraintDimensionRatio="1:1"
-        app:layout_constraintStart_toEndOf="@+id/item_recents_sim_image"
+        app:layout_constraintStart_toEndOf="@id/item_recents_sim_name"
         app:layout_constraintTop_toTopOf="@+id/item_recents_date_time"
         tools:tint="@color/color_missed_call" />
 

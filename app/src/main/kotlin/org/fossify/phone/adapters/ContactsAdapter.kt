@@ -11,6 +11,8 @@ import android.view.*
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePaddingRelative
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -46,6 +48,7 @@ class ContactsAdapter(
     private val showDeleteButton: Boolean = true,
     private val enableDrag: Boolean = false,
     private val allowLongClick: Boolean = true,
+    private val compactRows: Boolean = false,
     itemClick: (Any) -> Unit,
     val profileIconClick: ((Any) -> Unit)? = null
 ) : MyRecyclerViewAdapter(activity, recyclerView, itemClick),
@@ -139,6 +142,14 @@ class ContactsAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = Binding.getByItemViewType(viewType).inflate(layoutInflater, parent, false)
+        if (compactRows && viewType == VIEW_TYPE_LIST) {
+            val spacing = binding.root.paddingTop
+            binding.root.updatePaddingRelative(start = spacing)
+            binding.root.findViewById<TextView>(org.fossify.commons.R.id.item_contact_name).updateLayoutParams<ConstraintLayout.LayoutParams> {
+                marginStart = spacing
+                goneStartMargin = 0
+            }
+        }
         return createViewHolder(binding.root)
     }
 

@@ -11,6 +11,9 @@ import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.provider.Settings
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -34,6 +37,7 @@ import org.fossify.phone.dialogs.ChangeSortingDialog
 import org.fossify.phone.dialogs.FilterContactSourcesDialog
 import org.fossify.phone.extensions.clearMissedCalls
 import org.fossify.phone.extensions.config
+import org.fossify.phone.extensions.getMainSurfaceColor
 import org.fossify.phone.extensions.handleFullScreenNotificationsPermission
 import org.fossify.phone.extensions.launchCreateNewContactIntent
 import org.fossify.phone.fragments.ContactsFragment
@@ -265,6 +269,15 @@ class MainActivity : SimpleActivity() {
 
     private fun updateMenuColors() {
         binding.mainMenu.updateColors()
+        val surfaceColor = getMainSurfaceColor()
+        binding.mainMenu.binding.toolbarContainer.background?.applyColorFilter(surfaceColor)
+        val menu = binding.mainMenu.requireToolbar().menu
+        for (index in 0 until menu.size()) {
+            val item = menu.getItem(index)
+            item.title = SpannableString(item.title.toString()).apply {
+                setSpan(ForegroundColorSpan(surfaceColor.getContrastColor()), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
     }
 
     private fun checkContactPermissions() {
@@ -324,8 +337,7 @@ class MainActivity : SimpleActivity() {
             updateBottomTabItemColors(inactiveView, false, getDeselectedTabDrawableIds()[index])
         }
 
-        val bottomBarColor = getBottomNavigationBackgroundColor()
-        binding.mainTabsHolder.setBackgroundColor(bottomBarColor)
+        binding.mainTabsHolder.setBackgroundColor(getMainSurfaceColor())
     }
 
     private fun getInactiveTabIndexes(activeIndex: Int) = (0 until binding.mainTabsHolder.tabCount).filter { it != activeIndex }

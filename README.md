@@ -1,4 +1,11 @@
-# Fossify Phone
+# PhoneDev
+
+Unofficial development version of [Fossify Phone](https://github.com/FossifyOrg/Phone), with changes by [marqo79](https://github.com/marqo79). The original app is developed by Fossify and its contributors. This version retains the original project history and [GNU GPL version 3 license](LICENSE).
+
+Updated in-call controls and notifications, SIM selection and labels, and the call history display.
+
+## Upstream project
+
 <img alt="Logo" src="graphics/icon.webp" width="120" />
 
 <a href='https://play.google.com/store/apps/details?id=org.fossify.phone'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png' height=80/></a> <a href="https://f-droid.org/packages/org.fossify.phone/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on-en.svg" alt="Get it on F-Droid" height=80/></a> <a href="https://apt.izzysoft.de/fdroid/index/apk/org.fossify.phone"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" height=80/></a>

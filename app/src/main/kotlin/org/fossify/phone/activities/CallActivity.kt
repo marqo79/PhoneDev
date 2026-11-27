@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.LayerDrawable
-import android.graphics.drawable.RippleDrawable
 import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
@@ -57,7 +55,6 @@ class CallActivity : SimpleActivity() {
     private var callContact: CallContact? = null
     private var proximityWakeLock: PowerManager.WakeLock? = null
     private var screenOnWakeLock: PowerManager.WakeLock? = null
-    private var callDuration = 0
     private val callDurationHandler = Handler(Looper.getMainLooper())
     private var dragDownX = 0f
     private var stopAnimation = false
@@ -232,7 +229,7 @@ class CallActivity : SimpleActivity() {
             }
         )
 
-        arrayOf(dialpadClose, callSimImage, dialpadClearChar).forEach {
+        arrayOf(dialpadClose, dialpadClearChar).forEach {
             it.applyColorFilter(getProperTextColor())
         }
 
@@ -258,7 +255,6 @@ class CallActivity : SimpleActivity() {
             }
         }
 
-        callSimId.setTextColor(getProperTextColor().getContrastColor())
         dialpadInput.disableKeyboard()
 
         dialpadWrapper.onGlobalLayout {
@@ -468,7 +464,7 @@ class CallActivity : SimpleActivity() {
 
     private fun updateCallAudioState(route: AudioRoute?) {
         if (route != null) {
-            isMicrophoneOff = audioManager.isMicrophoneMute
+            isMicrophoneOff = CallManager.isMicrophoneMuted()
             updateMicrophoneButton()
 
             isSpeakerOn = route == AudioRoute.SPEAKER
@@ -499,13 +495,12 @@ class CallActivity : SimpleActivity() {
     }
 
     private fun toggleMicrophone() {
-        isMicrophoneOff = !isMicrophoneOff
-        audioManager.isMicrophoneMute = isMicrophoneOff
-        CallManager.inCallService?.setMuted(isMicrophoneOff)
-        updateMicrophoneButton()
+        CallManager.toggleMicrophoneMute()
     }
 
     private fun updateMicrophoneButton() {
+        val icon = if (isMicrophoneOff) R.drawable.ic_microphone_off_vector else R.drawable.ic_microphone_vector
+        binding.callToggleMicrophone.setImageResource(icon)
         toggleButtonColor(binding.callToggleMicrophone, isMicrophoneOff)
         binding.callToggleMicrophone.contentDescription = getString(if (isMicrophoneOff) R.string.turn_microphone_on else R.string.turn_microphone_off)
     }
@@ -617,37 +612,16 @@ class CallActivity : SimpleActivity() {
         }
     }
 
-    @SuppressLint("MissingPermission")
     private fun checkCalledSIMCard() {
-        try {
-            val simLabels = getAvailableSIMCardLabels()
-            if (simLabels.size > 1) {
-                simLabels.forEachIndexed { index, sim ->
-                    if (sim.handle == CallManager.getPrimaryCall()?.details?.accountHandle) {
-                        binding.apply {
-                            callSimId.text = sim.id.toString()
-                            callSimId.beVisible()
-                            callSimImage.beVisible()
-                            val simColor = sim.color.adjustForContrast(getProperBackgroundColor())
-                            callSimId.setTextColor(simColor.getContrastColor())
-                            callSimImage.applyColorFilter(simColor)
-                        }
-
-                        val acceptDrawableId = when (index) {
-                            0 -> R.drawable.ic_phone_one_vector
-                            1 -> R.drawable.ic_phone_two_vector
-                            else -> R.drawable.ic_phone_vector
-                        }
-
-                        val rippleBg = resources.getDrawable(R.drawable.ic_call_accept, theme) as RippleDrawable
-                        val layerDrawable = rippleBg.findDrawableByLayerId(R.id.accept_call_background_holder) as LayerDrawable
-                        layerDrawable.setDrawableByLayerId(R.id.accept_call_icon, getDrawable(acceptDrawableId))
-                        binding.callAccept.setImageDrawable(rippleBg)
-                    }
-                }
-            }
-        } catch (ignored: Exception) {
+        val simAccounts = getAvailableSIMCardLabels()
+        val account = CallManager.getPrimaryCall()?.details?.accountHandle
+        val sim = simAccounts.takeIf { it.size > 1 }?.firstOrNull { it.handle == account }
+        val simName = sim?.displayName
+        binding.callSimName.text = simName
+        if (sim != null) {
+            binding.callSimName.setTextColor(sim.color.adjustForContrast(getProperBackgroundColor()))
         }
+        binding.callSimName.beVisibleIf(!simName.isNullOrEmpty())
     }
 
     private fun updateCallState(call: Call) {
@@ -655,7 +629,7 @@ class CallActivity : SimpleActivity() {
         when (state) {
             Call.STATE_RINGING -> callRinging()
             Call.STATE_ACTIVE -> callStarted()
-            Call.STATE_DISCONNECTED -> endCall()
+            Call.STATE_DISCONNECTED -> endCall(call)
             Call.STATE_CONNECTING, Call.STATE_DIALING -> initOutgoingCallUI()
             Call.STATE_SELECT_PHONE_ACCOUNT -> showPhoneAccountPicker()
         }
@@ -757,34 +731,33 @@ class CallActivity : SimpleActivity() {
         }
     }
 
-    private fun endCall() {
+    private fun endCall(call: Call? = CallManager.getPrimaryCall()) {
+        if (isCallEnded) return
+        isCallEnded = true
+
+        val wasConnected = (call?.details?.connectTimeMillis ?: 0L) > 0L
+        val duration = call.getCallDuration().coerceAtLeast(0)
+        callDurationHandler.removeCallbacks(updateCallDurationTask)
         CallManager.reject()
         disableProximitySensor()
         audioRouteChooserDialog?.dismissAllowingStateLoss()
-
-        if (isCallEnded) {
-            safeFinishAndRemoveTask()
-            return
-        }
 
         try {
             audioManager.mode = AudioManager.MODE_NORMAL
         } catch (ignored: Exception) {
         }
 
-        isCallEnded = true
         runOnUiThread {
-            if (callDuration > 0) {
-                disableAllActionButtons()
-                @SuppressLint("SetTextI18n")
-                binding.callStatusLabel.text = "${callDuration.getFormattedDuration()} (${getString(R.string.call_ended)})"
-                Handler(mainLooper).postDelayed(3000) {
-                    safeFinishAndRemoveTask()
-                }
-            } else {
-                disableAllActionButtons()
-                binding.callStatusLabel.text = getString(R.string.call_ended)
-                finish()
+            disableAllActionButtons()
+            binding.incomingCallHolder.beGone()
+            binding.holdStatusLabel.beGone()
+            binding.callStatusLabel.beVisibleIf(wasConnected)
+            if (wasConnected) {
+                binding.callStatusLabel.text = duration.getFormattedDuration()
+            }
+            binding.callEndedLabel.beVisible()
+            Handler(mainLooper).postDelayed(3000) {
+                safeFinishAndRemoveTask()
             }
         }
     }
@@ -819,9 +792,8 @@ class CallActivity : SimpleActivity() {
 
     private val updateCallDurationTask = object : Runnable {
         override fun run() {
-            callDuration = CallManager.getPrimaryCall().getCallDuration()
             if (!isCallEnded) {
-                binding.callStatusLabel.text = callDuration.getFormattedDuration()
+                binding.callStatusLabel.text = CallManager.getPrimaryCall().getCallDuration().getFormattedDuration()
                 callDurationHandler.postDelayed(this, 1000)
             }
         }

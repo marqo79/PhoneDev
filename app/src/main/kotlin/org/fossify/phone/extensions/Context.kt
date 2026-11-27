@@ -6,18 +6,27 @@ import android.app.KeyguardManager
 import android.content.Context
 import android.content.Context.KEYGUARD_SERVICE
 import android.content.Intent
+import android.graphics.Color
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.telecom.TelecomManager
+import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
+import androidx.core.graphics.ColorUtils
+import org.fossify.commons.extensions.getProperBackgroundColor
 import org.fossify.commons.extensions.launchActivityIntent
 import org.fossify.commons.extensions.telecomManager
 import org.fossify.commons.helpers.KEY_PHONE
 import org.fossify.commons.helpers.ensureBackgroundThread
+import org.fossify.phone.R
 import org.fossify.phone.helpers.Config
 import org.fossify.phone.models.SIMAccount
 
 val Context.config: Config get() = Config.newInstance(applicationContext)
+
+fun Context.getMainSurfaceColor(): Int = ColorUtils.blendARGB(getProperBackgroundColor(), Color.BLACK, 0.05f)
 
 val Context.audioManager: AudioManager
     get() = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -34,7 +43,21 @@ fun Context.getAvailableSIMCardLabels(): List<SIMAccount> {
     try {
         telecomManager.callCapablePhoneAccounts.forEachIndexed { index, account ->
             val phoneAccount = telecomManager.getPhoneAccount(account)
-            var label = phoneAccount.label.toString()
+            val subscription = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                runCatching {
+                    val subscriptionId = getSystemService(TelephonyManager::class.java).getSubscriptionId(account)
+                    getSystemService(SubscriptionManager::class.java)
+                        .getActiveSubscriptionInfo(subscriptionId)
+                }.getOrNull()
+            } else {
+                null
+            }
+            val displayName = subscription?.displayName?.toString()?.takeIf { it.isNotBlank() }
+                ?: phoneAccount.label?.toString()?.takeIf { it.isNotBlank() }
+                ?: getString(R.string.sim_slot_name, index + 1)
+            val color = subscription?.iconTint?.takeIf { Color.alpha(it) == 255 }
+                ?: phoneAccount.highlightColor
+            var label = displayName
             var address = phoneAccount.address.toString()
             if (address.startsWith("tel:") && address.substringAfter("tel:").isNotEmpty()) {
                 address = Uri.decode(address.substringAfter("tel:"))
@@ -46,12 +69,21 @@ fun Context.getAvailableSIMCardLabels(): List<SIMAccount> {
                     id = index + 1,
                     handle = phoneAccount.accountHandle,
                     label = label,
+                    displayName = displayName,
                     phoneNumber = address.substringAfter("tel:"),
-                    color = phoneAccount.highlightColor
+                    color = color
                 )
             )
         }
     } catch (ignored: Exception) {
+    }
+
+    val colors = simAccounts.map { it.color }
+    if (simAccounts.size > 1 && (colors.distinct().size != colors.size || colors.any { Color.alpha(it) != 255 })) {
+        return simAccounts.mapIndexed { index, account ->
+            val hue = (216f + index * 110f) % 360f
+            account.copy(color = Color.HSVToColor(floatArrayOf(hue, 0.76f, 0.69f)))
+        }
     }
 
     return simAccounts

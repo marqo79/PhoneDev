@@ -6,6 +6,7 @@ data class SIMAccount(
     val id: Int,
     val handle: PhoneAccountHandle,
     val label: String,
+    val displayName: String,
     val phoneNumber: String,
     val color: Int,
 )

@@ -14,6 +14,7 @@ import org.fossify.phone.R
 import org.fossify.phone.databinding.DialogSelectSimBinding
 import org.fossify.phone.extensions.config
 import org.fossify.phone.extensions.getAvailableSIMCardLabels
+import org.fossify.phone.extensions.getMainSurfaceColor
 
 @SuppressLint("MissingPermission")
 class SelectSIMDialog(
@@ -32,7 +33,7 @@ class SelectSIMDialog(
 
         activity.getAvailableSIMCardLabels().forEachIndexed { index, SIMAccount ->
             val radioButton = (activity.layoutInflater.inflate(R.layout.radio_button, null) as RadioButton).apply {
-                text = "${index + 1} - ${SIMAccount.label}"
+                text = SIMAccount.label.ifBlank { (index + 1).toString() }
                 id = index
                 setOnClickListener { selectedSIM(SIMAccount.handle) }
             }
@@ -43,6 +44,12 @@ class SelectSIMDialog(
             .apply {
                 activity.setupDialogStuff(binding.root, this) { alertDialog ->
                     dialog = alertDialog
+                    alertDialog.window?.let { window ->
+                        window.decorView.background?.mutate()?.let { background ->
+                            background.setTint(activity.getMainSurfaceColor())
+                            window.setBackgroundDrawable(background)
+                        }
+                    }
                 }
             }
 

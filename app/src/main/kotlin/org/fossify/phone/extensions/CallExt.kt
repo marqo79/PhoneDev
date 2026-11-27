@@ -2,6 +2,7 @@ package org.fossify.phone.extensions
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.telecom.PhoneAccount
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
@@ -12,16 +13,32 @@ import org.fossify.commons.dialogs.PermissionRequiredDialog
 import org.fossify.commons.extensions.canUseFullScreenIntent
 import org.fossify.commons.extensions.initiateCall
 import org.fossify.commons.extensions.isDefaultDialer
-import org.fossify.commons.extensions.launchCallIntent
+import org.fossify.commons.extensions.launchActivityIntent
 import org.fossify.commons.extensions.openFullScreenIntentSettings
 import org.fossify.commons.extensions.openNotificationSettings
 import org.fossify.commons.extensions.telecomManager
+import org.fossify.commons.helpers.PERMISSION_CALL_PHONE
 import org.fossify.commons.helpers.PERMISSION_READ_PHONE_STATE
 import org.fossify.commons.models.contacts.Contact
 import org.fossify.phone.BuildConfig
 import org.fossify.phone.activities.DialerActivity
 import org.fossify.phone.activities.SimpleActivity
 import org.fossify.phone.dialogs.SelectSIMDialog
+
+private fun BaseSimpleActivity.launchCallIntent(recipient: String, handle: PhoneAccountHandle? = null) {
+    handlePermission(PERMISSION_CALL_PHONE) { granted ->
+        val callIntent = Intent(if (granted) Intent.ACTION_CALL else Intent.ACTION_DIAL).apply {
+            data = Uri.fromParts(PhoneAccount.SCHEME_TEL, recipient, null)
+            if (granted && isDefaultDialer()) {
+                setClass(this@launchCallIntent, DialerActivity::class.java)
+            }
+            if (granted && handle != null) {
+                putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle)
+            }
+        }
+        launchActivityIntent(callIntent)
+    }
+}
 
 fun SimpleActivity.startCallIntent(
     recipient: String,
@@ -104,20 +121,28 @@ fun SimpleActivity.getHandleToUse(
 ) {
     handlePermission(PERMISSION_READ_PHONE_STATE) {
         if (it) {
-            val defaultHandle =
-                telecomManager.getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL)
+            val customHandle = config.getCustomSIM(phoneNumber)
             when {
                 forceSimSelector -> showSelectSimDialog(phoneNumber, callback)
                 intent?.hasExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE) == true -> {
                     callback(intent.getParcelableExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE)!!)
                 }
 
-                config.getCustomSIM(phoneNumber) != null -> {
-                    callback(config.getCustomSIM(phoneNumber))
+                customHandle != null -> callback(customHandle)
+                intent?.getBooleanExtra("org.fossify.phone.extra.SHOW_SIM_PICKER", false) == true &&
+                    areMultipleSIMsAvailable() -> {
+                    showSelectSimDialog(phoneNumber, callback)
                 }
 
-                defaultHandle != null -> callback(defaultHandle)
-                else -> showSelectSimDialog(phoneNumber, callback)
+                else -> {
+                    val defaultHandle =
+                        telecomManager.getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL)
+                    if (defaultHandle != null) {
+                        callback(defaultHandle)
+                    } else {
+                        showSelectSimDialog(phoneNumber, callback)
+                    }
+                }
             }
         }
     }

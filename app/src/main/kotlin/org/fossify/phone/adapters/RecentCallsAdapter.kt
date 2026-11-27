@@ -558,13 +558,10 @@ class RecentCallsAdapter(
                     )
                 }
 
-                itemRecentsSimImage.beVisibleIf(areMultipleSIMsAvailable && call.simID != -1)
-                itemRecentsSimId.beVisibleIf(areMultipleSIMsAvailable && call.simID != -1)
-                if (areMultipleSIMsAvailable && call.simID != -1) {
-                    val simColor = getAdjustedSimColor(call.simColor)
-                    itemRecentsSimImage.applyColorFilter(simColor)
-                    itemRecentsSimId.setTextColor(simColor.getContrastColor())
-                    itemRecentsSimId.text = call.simID.toString()
+                itemRecentsSimName.apply {
+                    text = call.simName
+                    setTextColor(getAdjustedSimColor(call.simColor))
+                    beVisibleIf(areMultipleSIMsAvailable && !call.simName.isNullOrEmpty())
                 }
 
                 SimpleContactsHelper(root.context).loadContactImage(call.photoUri, itemRecentsImage, call.name)
@@ -655,6 +652,8 @@ class RecentCallsDiffCallback : DiffUtil.ItemCallback<CallLogItem>() {
                         oldItem.duration == newItem.duration &&
                         oldItem.type == newItem.type &&
                         oldItem.simID == newItem.simID &&
+                        oldItem.simName == newItem.simName &&
+                        oldItem.simColor == newItem.simColor &&
                         oldItem.specificNumber == newItem.specificNumber &&
                         oldItem.specificType == newItem.specificType &&
                         oldItem.isUnknownNumber == newItem.isUnknownNumber &&

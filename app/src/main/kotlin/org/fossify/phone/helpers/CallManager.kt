@@ -109,6 +109,12 @@ class CallManager {
             }.toTypedArray()
         }
 
+        fun isMicrophoneMuted() = getCallAudioState()?.isMuted == true
+
+        fun toggleMicrophoneMute() {
+            inCallService?.setMuted(!isMicrophoneMuted())
+        }
+
         fun getCallAudioRoute() = AudioRoute.fromRoute(getCallAudioState()?.route)
 
         fun setAudioRoute(newRoute: Int) {

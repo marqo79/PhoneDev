@@ -53,7 +53,7 @@ fun getCallContact(context: Context, call: Call?, callback: (CallContact) -> Uni
                 }
 
                 callContact.number = if (context.config.formatPhoneNumbers) {
-                    number.formatPhoneNumber()
+                    number.formatPhoneNumber().replace("(", "").replace(")", "")
                 } else {
                     number
                 }

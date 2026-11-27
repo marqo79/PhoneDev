@@ -18,6 +18,7 @@ import org.fossify.phone.models.Events
 import org.greenrobot.eventbus.EventBus
 
 class CallService : InCallService() {
+    private var lastAudioState: CallAudioState? = null
     private val callNotificationManager by lazy { CallNotificationManager(this) }
 
     private val callListener = object : Call.Callback() {
@@ -86,7 +87,14 @@ class CallService : InCallService() {
     override fun onCallAudioStateChanged(audioState: CallAudioState?) {
         super.onCallAudioStateChanged(audioState)
         if (audioState != null) {
+            val previousState = lastAudioState
+            lastAudioState = audioState
             CallManager.onAudioStateChanged(audioState)
+            if (CallManager.getState() == Call.STATE_ACTIVE &&
+                (audioState.isMuted != previousState?.isMuted || audioState.route != previousState?.route)
+            ) {
+                callNotificationManager.setupNotification()
+            }
         }
     }
 

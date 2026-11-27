@@ -23,6 +23,7 @@ data class RecentCall(
     val specificType: String,
     val isUnknownNumber: Boolean,
     val groupedCalls: MutableList<RecentCall>? = null,
+    val simName: String? = null,
 ) : CallLogItem() {
     val dayCode = startTS.getDayCode()
 

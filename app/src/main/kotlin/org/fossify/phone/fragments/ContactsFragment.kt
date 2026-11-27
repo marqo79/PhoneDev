@@ -26,6 +26,7 @@ import org.fossify.phone.activities.SimpleActivity
 import org.fossify.phone.adapters.ContactsAdapter
 import org.fossify.phone.databinding.FragmentContactsBinding
 import org.fossify.phone.databinding.FragmentLettersLayoutBinding
+import org.fossify.phone.extensions.getMainSurfaceColor
 import org.fossify.phone.extensions.handleGenericContactClick
 import org.fossify.phone.extensions.launchCreateNewContactIntent
 import org.fossify.phone.extensions.setupWithContacts
@@ -35,12 +36,15 @@ import org.fossify.phone.interfaces.RefreshItemsListener
 class ContactsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerFragment<MyViewPagerFragment.LettersInnerBinding>(context, attributeSet),
     RefreshItemsListener {
     private lateinit var binding: FragmentLettersLayoutBinding
+    private lateinit var contactSections: ContactSectionDecoration
     private var allContacts = ArrayList<Contact>()
 
     override fun onFinishInflate() {
         super.onFinishInflate()
         binding = FragmentLettersLayoutBinding.bind(FragmentContactsBinding.bind(this).contactsFragment)
         innerBinding = LettersInnerBinding(binding)
+        contactSections = ContactSectionDecoration(binding.fragmentList)
+        binding.fragmentList.addItemDecoration(contactSections)
     }
 
     override fun setupFragment() {
@@ -74,6 +78,7 @@ class ContactsFragment(context: Context, attributeSet: AttributeSet) : MyViewPag
     override fun setupColors(textColor: Int, primaryColor: Int, properPrimaryColor: Int) {
         binding.apply {
             (fragmentList.adapter as? MyRecyclerViewAdapter)?.updateTextColor(textColor)
+            fragmentList.setBackgroundColor(context.getMainSurfaceColor())
             fragmentPlaceholder.setTextColor(textColor)
             fragmentPlaceholder2.setTextColor(properPrimaryColor)
 
@@ -107,7 +112,6 @@ class ContactsFragment(context: Context, attributeSet: AttributeSet) : MyViewPag
     }
 
     private fun gotContacts(contacts: ArrayList<Contact>) {
-        setupLetterFastScroller(contacts)
         if (contacts.isEmpty()) {
             binding.apply {
                 fragmentPlaceholder.beVisible()
@@ -127,6 +131,7 @@ class ContactsFragment(context: Context, attributeSet: AttributeSet) : MyViewPag
                     contacts = contacts,
                     recyclerView = binding.fragmentList,
                     refreshItemsListener = this,
+                    compactRows = true,
                     itemClick = {
                         activity?.handleGenericContactClick(it as Contact)
                     },
@@ -144,9 +149,25 @@ class ContactsFragment(context: Context, attributeSet: AttributeSet) : MyViewPag
                 (binding.fragmentList.adapter as ContactsAdapter).updateItems(contacts)
             }
         }
+        setupLetterFastScroller(contacts)
     }
 
-    private fun setupLetterFastScroller(contacts: ArrayList<Contact>) {
+    private fun setupLetterFastScroller(contacts: ArrayList<Contact>, showSections: Boolean = true) {
+        contactSections.sectionTitles = if (showSections) {
+            buildMap {
+                var previous: String? = null
+                contacts.forEachIndexed { position, contact ->
+                    val letter = contact.getFirstLetter().ifEmpty { "#" }
+                    if (letter != previous) {
+                        put(position, letter)
+                        previous = letter
+                    }
+                }
+            }
+        } else {
+            emptyMap()
+        }
+        binding.fragmentList.invalidateItemDecorations()
         binding.letterFastscroller.setupWithContacts(binding.fragmentList, contacts)
     }
 
@@ -179,7 +200,7 @@ class ContactsFragment(context: Context, attributeSet: AttributeSet) : MyViewPag
 
         binding.fragmentPlaceholder.beVisibleIf(filtered.isEmpty())
         (binding.fragmentList.adapter as? ContactsAdapter)?.updateItems(filtered, fixedText)
-        setupLetterFastScroller(filtered)
+        setupLetterFastScroller(filtered, showSections = fixedText.isEmpty())
     }
 
     private fun requestReadContactsPermission() {
